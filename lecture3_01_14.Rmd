@@ -219,6 +219,7 @@ flights %>% rename_at(# rename column
 )
 
 # filter_if and filter_at ??
+# filter_at medium note: https://medium.com/@kanaugust/you-can-use-filter-if-or-filter-at-5117effd8b3b
 flights %>% filter_at( # choose the columns
   vars(ends_with("_time"), -air_time), #=> this the name of column
   all_vars(. >= 1200)
