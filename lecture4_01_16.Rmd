@@ -1,0 +1,354 @@
+---
+title: "lecture4_01_16"
+author: "Ye Tao"
+date: "1/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Today, we will spend some time talking about some special data types in R.
+- factors
+- data and time
+
+
+## Factors
+
+
+When importing data to R, base R has a burning desire to turn character
+information into factor. See for example, `read.table`, and `read.csv`.
+
+```{r, message = FALSE}
+library(tidyverse)
+```
+
+```{r, eval = FALSE}
+# to illustrate the issue of `read.csv`, let's write a csv file out of the flights dataset
+library(nycflights13)
+write_csv(flights %>% sample_n(100), "flights.csv")
+```
+
+```{r, eval = FALSE}
+# base R function, character variables are automatically converted to factors
+read.csv("flights.csv") # all the columns right now are factors when using base r read.csv function
+
+# notice that tailnum are are just character but the r based read.csv functoion will treat it as factor or levels
+# which is the thing we do not wanna see
+```
+
+
+```{r, eval = FALSE}
+# tidyverse function readr
+# readr function, character variables are imported as is
+read_csv("flights.csv")
+
+
+# there are several workarounds,
+# 1. we could use `mutate_if` to force the conversion
+read_csv("flights.csv") %>%
+  mutate_if(is.character, as_factor) # check the content of each column with mutate_if
+read_csv("flights.csv") %>%
+  mutate_if(~ is.character(.) && n_distinct(.) < 50, as_factor)
+
+# 2. we could specify the column types manually
+read_csv("flights.csv", col_types = "iiiddddddfccffddddT") # 19 columns i -> integer, d -> decimal double, f-> factor
+# c-> character, T -> time
+# 3. use the rstudio import interface just not function to use
+```
+
+
+### Factor inspection
+
+Let's consider the dataset `gss_cat`: A sample of categorical variables from the General Social survey
+
+
+
+```{r}
+# partyid is factor here different political - preference
+class(gss_cat$partyid)
+levels(gss_cat$partyid)
+
+# unique value in this factor, not too much difference with level but factor unqiue gives factor in the end 
+# levels gives charatcer
+fct_unique(gss_cat$partyid)
+nlevels(gss_cat$partyid)
+```
+
+```{r}
+gss_cat %>% count(partyid)
+fct_count(gss_cat$partyid, sort = TRUE) #
+```
+
+
+
+### Combining factors
+
+
+```{r}
+fa <- factor("a")
+fb <- factor("b")
+fab <- factor(c("a", "b")) # factor for two value
+
+as.integer(fa) # numerical value a represent the level:a
+
+# so when conncant them this will give a sequence if number which is the thing we do not wanna see
+c(fa, fb, fab)  # not what you want! 1 1 1 2
+fct_c(fa, fb, fab) # combine all the factor, 1this correct
+```
+
+
+### Dropping unused levels
+
+
+The number of levels won't change even all the rows corresponding to specific factor level are dropped.
+wield thing here
+```{r}
+gss_cat2 <- gss_cat %>%
+  filter(partyid %in% c("Independent", "Strong democrat", "Strong republican"))
+nlevels(gss_cat2$partyid) # this will keep the level of 10 which is the level of original dataset
+
+```
+
+```{r}
+# drop unused levels of a specific factor
+gss_cat2$partyid <- gss_cat2$partyid %>% fct_drop() # dropp all other unused data
+levels(gss_cat2$partyid)
+
+# or
+gss_cat %>% mutate(partyid = fct_drop(partyid))
+```
+
+```{r}
+# drop unused levels for all the factors in a data frame
+gss_cat2 <- gss_cat2 %>% droplevels()
+```
+
+### Change order of the levels
+
+```{r}
+gss_cat$partyid %>%
+  levels()
+## order factor by frequency
+gss_cat %>% mutate(partyid = partyid %>% fct_infreq())
+# this helps to visualize by order in frequency
+## backwards!
+gss_cat %>% mutate(partyid = partyid %>% fct_infreq() %>% fct_rev()) %>% pull(partyid) %>% levels
+```
+
+Why?
+
+```{r}
+ggplot(gss_cat) + geom_bar(aes(partyid)) + coord_flip()
+```
+
+```{r}
+
+# reverse the order fct_rev
+ggplot(gss_cat) + geom_bar(aes(partyid %>% fct_infreq() %>% fct_rev())) +
+  xlab("partyid") + coord_flip()
+```
+https://www.sharpsightlabs.com/blog/highlight-data-in-ggplot2/
+hight the one single bar in the bar chart
+
+
+
+
+
+fct_reorder used in david robinson check out the youtube channel
+
+
+
+```{r}
+gss_cat %>%
+  group_by(partyid) %>%
+  summarize(mean_age = mean(age, na.rm = TRUE)) %>%
+  ggplot(aes(x = mean_age, y = partyid)) + # reorder factor needed here
+  geom_point() + ylab("partyid")
+```
+
+
+```{r}
+# reorder factor according to values of another variable
+# age increease the strong poitical idea
+gss_cat %>%
+  group_by(partyid) %>%
+  summarize(mean_age = mean(age, na.rm = TRUE)) %>%
+  ggplot(aes(x = mean_age, y = fct_reorder(partyid, mean_age))) + # reorder factor  partyid by mean age with increasing order
+  geom_point() + ylab("partyid")
+```
+
+
+### Change to any order
+
+```{r}
+gss_cat$partyid %>% levels()
+gss_cat$partyid %>%
+  fct_relevel("Strong republican", "Strong democrat") %>% # move factor position group#1 strong republixan
+  levels()
+# use mutate verb to modifly the data frame to change the columns
+gss_cat %>% mutate(partyid = partyid %>% fct_relevel("Strong republican", "Strong democrat")) # ordering factor as you want
+```
+
+
+### Recode levels
+
+```{r}
+gss_cat$partyid %>% levels()
+gss_cat$partyid %>%
+  fct_recode(
+    "Independent,near rep" = "Ind,near rep",
+    "Independent,near dem" = "Ind,near dem"
+  ) %>%
+  levels()
+# if we need to modifly the data frame, then
+gss_cat %>% mutate(partyid = partyid %>%
+  fct_recode(
+    "Independent,near rep" = "Ind,near rep",
+    "Independent,near dem" = "Ind,near dem"
+  ))
+```
+
+### Collapse levels
+
+```{r}
+# collapse small levels automatically
+# fct_lump 5 + 1 categoty which is other category
+# https://forcats.tidyverse.org/reference/fct_lump.html
+gss_cat %>%
+  mutate(partyid = partyid %>% fct_lump(5)) %>%
+  ggplot() + geom_bar(aes(partyid))
+```
+
+```{r}
+# collapse manually
+gss_cat %>%
+  mutate(partyid = partyid %>% fct_collapse(
+    Missing = c("No answer", "Don't know"),
+    Rep = c("Strong republican", "Not str republican"),
+    Ind = c("Ind,near rep", "Independent", "Ind,near dem"),
+    Dem = c("Not str democrat", "Strong democrat"),
+    Other = c("Other party")
+  )) %>%
+  ggplot() + geom_bar(aes(partyid))
+```
+
+Remark: there is a bug in forcats v0.4.0 such that the argument `group_other` in `fct_collapse` is malfunction.
+
+
+
+## Date and time
+
+```{r}
+library(lubridate)
+today()
+now() # default in UTC (Coordinated Universal Time) # international line
+```
+
+```{r}
+# internally, time is stored as the so called "unix time"
+# the number of seconds since 1970-01-01 00:00:00 UTC
+as.double(now())
+as_datetime(1579192970)
+```
+
+```{r}
+ymd("2017-01-31")
+mdy("January 31st, 2017")
+dmy("31-Jan-2017")
+```
+```{r}
+ymd_hms("2017-01-31 20:11:59")
+mdy_hm("01/31/2017 08:01")
+mdy_hm("01/31/2017 08:01", tz = "US/Eastern")
+```
+
+```{r}
+# OlsonNames() prints all the time zones 
+# for the us time zones
+OlsonNames() %>% keep(~str_starts(., "US/"))
+```
+
+```{r}
+(t1 <- mdy_hm("01/31/2017 08:01", tz = "US/Eastern"))
+# convert timezone
+with_tz(t1, tzone = "US/Pacific")
+# fix a timezone
+force_tz(t1, tzone = "US/Pacific")
+```
+
+### From individual components
+```{r}
+library(nycflights13)
+flights %>%
+  select(year, month, day, hour, minute)
+```
+
+```{r}
+(flights_dt <- flights %>%
+  select(year, month, day, hour, minute) %>%
+  mutate(
+    date = make_date(year, month, day),
+    time = make_datetime(year, month, day, hour, minute)
+  ))
+```
+
+Remark: something was wrong above!
+
+### Get components
+
+```{r}
+datetime <- ymd_hms("2016-07-08 12:34:56")
+year(datetime)
+month(datetime)
+month(datetime, label = TRUE)
+mday(datetime)
+yday(datetime)
+wday(datetime)
+wday(datetime, label = TRUE, abbr = FALSE)
+```
+
+
+```{r}
+flights_dt %>%
+  mutate(wday = wday(time, label = TRUE)) %>%
+  ggplot(aes(x = wday)) +
+  geom_bar()
+```
+
+
+### Math on data and time
+
+```{r}
+nor <- ymd_hms("2018-01-01 01:30:00",tz="US/Eastern") 
+nor + minutes(90)
+nor + dminutes(90)
+gap <- ymd_hms("2018-03-11 01:30:00",tz="US/Eastern") 
+gap + minutes(90)
+gap + dminutes(90)
+leap <- ymd("2019-03-01")
+leap + years(1)
+leap + dyears(1)
+```
+
+
+
+# References
+
+https://r4ds.had.co.nz
+https://lubridate.tidyverse.org/
+https://forcats.tidyverse.org/
+
+Terms
+Privacy
+Security
+Status
+Help
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About

@@ -55,6 +55,13 @@ some_data <- tibble(
 some_data %>% mutate(row_number(), row_number(x), min_rank(x), percent_rank(x))
 ```
 
+
+x %>% f() is equivalent to f(x)
+x %>% f(.) is also equivalent to f(x)
+x %>% f(y) is equivalent to f(x, y)
+x %>% f(., y) is equivalent to f(x, y)
+
+
 ### `lead` and `lag`
 
 ```{r}
@@ -278,11 +285,12 @@ relig_income %>%
 
 
 ```{r}
+# we need lomg format dataset for dataset analysis
 billboard %>%
-  pivot_longer(
+  pivot_longer( # stack all the columns together making dataset longer for most of time
     cols = starts_with("wk"),
     names_to = "week",
-    names_prefix = "wk",
+    names_prefix = "wk", # remove the prefix
     names_ptypes = list(week = integer()),
     values_to = "rank",
     values_drop_na = TRUE,
@@ -292,15 +300,15 @@ billboard %>%
 ### Privot wider
 
 ```{r}
-fish_encounters %>% pivot_wider(
+fish_encounters %>% pivot_wider( # make dataset wider, spread the dataset for readability for most of time
   names_from = station,
   values_from = seen,
-  values_fill = list(seen = 0)
+  values_fill = list(seen = 0) # fill missing valu with 0
 )
 ```
 
 ```{r}
-us_rent_income %>%
+us_rent_income %>% #spread variable into different value
   pivot_wider(names_from = variable, values_from = c(estimate, moe))
 ```
 
