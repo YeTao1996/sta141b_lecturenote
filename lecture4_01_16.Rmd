@@ -262,7 +262,7 @@ dmy("31-Jan-2017")
 ```{r}
 ymd_hms("2017-01-31 20:11:59")
 mdy_hm("01/31/2017 08:01")
-mdy_hm("01/31/2017 08:01", tz = "US/Eastern")
+mdy_hm("01/31/2017 08:01", tz = "US/Eastern") # time zone we have to specify the time zone other wise it will automatically give UTC time zone; I
 ```
 
 ```{r}
@@ -272,10 +272,11 @@ OlsonNames() %>% keep(~str_starts(., "US/"))
 ```
 
 ```{r}
-(t1 <- mdy_hm("01/31/2017 08:01", tz = "US/Eastern"))
+# origin time - UTC in default
+(t1 <- mdy_hm("01/31/2017 08:01", tz = "US/Eastern")) # eastern time
 # convert timezone
 with_tz(t1, tzone = "US/Pacific")
-# fix a timezone
+# fix a timezone into ptc time zone
 force_tz(t1, tzone = "US/Pacific")
 ```
 
@@ -287,15 +288,24 @@ flights %>%
 ```
 
 ```{r}
+
+# notice that time zone is not accurate
 (flights_dt <- flights %>%
   select(year, month, day, hour, minute) %>%
   mutate(
     date = make_date(year, month, day),
-    time = make_datetime(year, month, day, hour, minute)
+    time = make_datetime(year, month, day, hour, minute, tz = "US/Eastern") # create variable time  - specify the time zone; it is important
   ))
 ```
 
 Remark: something was wrong above!
+
+```{r}
+flights_dt %>% pull(time) %>% head # now it si EST
+```
+
+
+
 
 ### Get components
 
@@ -304,10 +314,15 @@ datetime <- ymd_hms("2016-07-08 12:34:56")
 year(datetime)
 month(datetime)
 month(datetime, label = TRUE)
-mday(datetime)
-yday(datetime)
+mday(datetime) # day of the month
+yday(datetime) # day of the year
 wday(datetime)
 wday(datetime, label = TRUE, abbr = FALSE)
+dst(datetime) # is it day light savin gtime?
+
+
+
+
 ```
 
 
@@ -325,13 +340,58 @@ flights_dt %>%
 nor <- ymd_hms("2018-01-01 01:30:00",tz="US/Eastern") 
 nor + minutes(90)
 nor + dminutes(90)
-gap <- ymd_hms("2018-03-11 01:30:00",tz="US/Eastern") 
+
+
+gap <- ymd_hms("2018-03-11 01:30:00",tz="US/Eastern") #2:00am -> 03:00am
 gap + minutes(90)
-gap + dminutes(90)
+gap + dminutes(90) # duration daylight saving
+
+
+
+
+
+
+# Leap Year
 leap <- ymd("2019-03-01")
 leap + years(1)
 leap + dyears(1)
+
+
+dyears(1) # number seconds 
+365 * 24 * 60 * 60
 ```
+
+
+Caculate the time difference
+```{r}
+# with different time zone
+t1 <- mdy_hm("01/21/2020 08:31", tz = "US/Eastern")
+t2 <- mdy_hm("01/21/2020 12:01", tz = "US/Pacific")
+t2 - t1
+```
+
+```{r}
+# rounding
+t1 <- mdy_hm("01/21/2020 08:31", tz = "US/Eastern")
+floor_date(t1, unit = "month") # round down the time
+round_date(t1, unit = "month")
+ceiling_date(t1, unit = "month")
+```
+
+
+### Interval
+
+define the interval to check if a particular time sit inside the interval.
+```{r}
+intvl <- interval(ymd("2019-12-01"), ymd("2020-01-21"))
+int_start(intvl)
+int_end(intvl)
+ymd("2019-12-31") %within% intvl
+```
+
+
+
+
 
 
 
